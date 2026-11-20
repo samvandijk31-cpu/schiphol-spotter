@@ -26,9 +26,9 @@ Daarom gaat de data via een kleine proxy:
 | Omgeving | Proxy |
 |---|---|
 | `npm run dev` / `npm run preview` | Vite proxy op `/adsb` (`vite.config.js`) |
-| Productie (GitHub Pages) | `server/index.mjs`, de URL komt in `VITE_ADSB_BASE` |
+| Productie (GitHub Pages) | `server/index.js`, de URL komt in `VITE_ADSB_BASE` |
 
-### Backend (`server/index.mjs`)
+### Backend (`server/index.js`)
 
 Eén bestand, geen dependencies, Node 18+. Staat alleen precies de Schiphol-query uit `src/lib/adsb.js` toe
 (pas `ALLOWED` aan als je `SCHIPHOL`/`RADIUS_NM` wijzigt), zet CORS-headers en cachet 2 seconden, zodat alle
@@ -36,15 +36,15 @@ bezoekers samen hooguit ~1 verzoek per 2 s naar adsb.fi doen. Bij een fout van a
 laatste goede antwoord nog 30 s geserveerd; daarna krijgt de app de fout te zien.
 
 ```bash
-SERVER_PORT=8787 ALLOWED_ORIGINS=https://jouwnaam.github.io node server/index.mjs
+SERVER_PORT=8787 ALLOWED_ORIGINS=https://jouwnaam.github.io node server/index.js
 ```
 
 - `SERVER_PORT` (of `PORT`): poort, op Pterodactyl automatisch gezet.
 - `ALLOWED_ORIGINS`: komma-gescheiden lijst van origins die de API vanuit de browser mogen gebruiken (standaard `*`).
 - Moet bereikbaar zijn via **HTTPS**: GitHub Pages draait op HTTPS en browsers blokkeren `http://`-verzoeken vanaf een HTTPS-pagina.
 
-Op een Pterodactyl-host (egg "node.js generic"): upload `server/index.mjs`, zet `JS_FILE` op `index.mjs` en
-`ALLOWED_ORIGINS` als omgevingsvariabele/startup-variabele.
+Op een Pterodactyl-host (egg "node.js generic"): upload `server/index.js` en `server/package.json`, zet het startbestand (`JS_FILE`/`MAIN_FILE`) op `index.js`. Zonder `ALLOWED_ORIGINS` staat CORS op `*`;
+dat is acceptabel omdat de server alleen die ene openbare query doorgeeft.
 
 ### Frontend (GitHub Pages)
 
@@ -75,7 +75,7 @@ src/
   lib/
     adsb.js               API, normalisatie, filters (+ adsb.test.js)
     photos.js             IndexedDB-opslag
-server/index.mjs          CORS-proxy + cache (backend, + index.test.mjs)
+server/index.js          CORS-proxy + cache (backend, + index.test.js)
 ```
 
 Data: © [adsb.fi](https://adsb.fi) (niet-commercieel gebruik), kaart © OpenStreetMap-bijdragers.

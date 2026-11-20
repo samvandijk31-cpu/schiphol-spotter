@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createServer } from './index.mjs'
+import { createServer } from './index.js'
 
 async function withServer(opts, fn) {
   const server = createServer(opts).listen(0)
