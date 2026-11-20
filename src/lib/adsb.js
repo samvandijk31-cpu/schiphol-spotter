@@ -3,7 +3,7 @@ export const RADIUS_NM = 60
 export const REFRESH_MS = 5000
 export const MAX_ALT = 50000
 
-// Same-origin '/adsb' is proxied by Vite (dev) and vercel.json; GitHub Pages needs VITE_ADSB_BASE.
+// Dev: same-origin '/adsb' via the Vite proxy. Production: VITE_ADSB_BASE = URL of server/index.mjs.
 const BASE = import.meta.env?.VITE_ADSB_BASE || '/adsb'
 
 export async function fetchAircraft(signal) {
