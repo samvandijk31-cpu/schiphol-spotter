@@ -5,26 +5,26 @@ import { pathToFileURL } from 'node:url'
 
 const UPSTREAM = 'https://opendata.adsb.fi'
 const CACHE_MS = 2000 // all visitors share one upstream call per 2 s; adsb.fi allows ~1 req/s per IP
-const ALLOWED = /^\/api\/v2\/lat\/-?\d+(\.\d+)?\/lon\/-?\d+(\.\d+)?\/dist\/\d{1,3}$/
+const STALE_MS = 30000 // on upstream errors keep serving the last good data this long, then report the error
+// Only the exact query the frontend sends (src/lib/adsb.js), so nobody can use this host to burn the adsb.fi rate limit.
+const ALLOWED = new Set(['/api/v2/lat/52.3105/lon/4.7683/dist/60'])
 
-export function createServer({ origins = ['*'], fetchImpl = fetch } = {}) {
+export function createServer({ origins = ['*'], fetchImpl = fetch, cacheMs = CACHE_MS, staleMs = STALE_MS } = {}) {
   const cache = new Map() // path -> { at, status, body, pending }
 
   async function load(path) {
     const hit = cache.get(path)
     if (hit?.pending) return hit.pending
-    if (hit && Date.now() - hit.at < CACHE_MS) return hit
+    if (hit && Date.now() - hit.at < cacheMs) return hit
     const pending = fetchImpl(UPSTREAM + path, { signal: AbortSignal.timeout(8000) })
-      .then(async (res) => ({ at: Date.now(), status: res.status, body: await res.text() }))
+      .then(async (res) => ({ status: res.status, body: await res.text() }))
+      .catch((err) => ({ status: 502, body: JSON.stringify({ error: err.message }) }))
       .then((fresh) => {
-        // On upstream errors (e.g. 429) keep serving the last good answer instead of failing the map.
-        const entry = fresh.status !== 200 && hit?.status === 200 ? { ...hit, at: Date.now() } : fresh
+        const now = Date.now()
+        const stale = fresh.status !== 200 && hit?.status === 200 && now - hit.goodAt < staleMs
+        const entry = stale ? { ...hit, at: now, pending: undefined } : { ...fresh, at: now, goodAt: now }
         cache.set(path, entry)
         return entry
-      })
-      .catch((err) => {
-        cache.set(path, hit ?? { at: 0, status: 502, body: JSON.stringify({ error: err.message }) })
-        return cache.get(path)
       })
     cache.set(path, { ...hit, pending })
     return pending
@@ -39,7 +39,7 @@ export function createServer({ origins = ['*'], fetchImpl = fetch } = {}) {
     const path = new URL(req.url, 'http://x').pathname
     if (req.method === 'OPTIONS') return res.writeHead(204, { ...headers, 'access-control-allow-methods': 'GET' }).end()
     if (path === '/health') return res.writeHead(200, headers).end('{"ok":true}')
-    if (req.method !== 'GET' || !ALLOWED.test(path)) return res.writeHead(404, headers).end('{"error":"not found"}')
+    if (req.method !== 'GET' || !ALLOWED.has(path)) return res.writeHead(404, headers).end('{"error":"not found"}')
 
     const { status, body } = await load(path)
     res.writeHead(status, headers).end(body)

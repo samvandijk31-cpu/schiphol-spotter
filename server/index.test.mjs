@@ -30,22 +30,25 @@ test('proxies allowed paths, caches and coalesces upstream calls', async () => {
 
 test('rejects anything that is not the ADSB.fi point query', async () => {
   await withServer({ fetchImpl: async () => assert.fail('must not call upstream') }, async (base) => {
-    for (const p of ['/', '/api/v2/hex/abc', '/api/v2/lat/1/lon/2/dist/60/../../x', '/api/v2/lat/a/lon/2/dist/60']) {
+    for (const p of ['/', '/api/v2/hex/abc', '/api/v2/lat/1/lon/2/dist/60', '/api/v2/lat/52.3105/lon/4.7683/dist/250']) {
       assert.equal((await fetch(base + p)).status, 404, p)
     }
     assert.equal((await fetch(base + '/health')).status, 200)
   })
 })
 
-test('serves last good data when upstream rate-limits', async () => {
+test('serves last good data briefly when upstream fails, then passes the error on', async () => {
   let status = 200
   const fetchImpl = async () => new Response(status === 200 ? '{"aircraft":[1]}' : '', { status })
-  await withServer({ fetchImpl }, async (base) => {
+  await withServer({ fetchImpl, cacheMs: 0, staleMs: 300 }, async (base) => {
     assert.equal(await (await fetch(base + path)).text(), '{"aircraft":[1]}')
     status = 429
-    await new Promise((r) => setTimeout(r, 2100))
-    const res = await fetch(base + path)
-    assert.equal(res.status, 200)
-    assert.equal(await res.text(), '{"aircraft":[1]}')
+    const stale = await fetch(base + path)
+    assert.equal(stale.status, 200)
+    assert.equal(await stale.text(), '{"aircraft":[1]}')
+    await new Promise((r) => setTimeout(r, 350))
+    assert.equal((await fetch(base + path)).status, 429, 'no frozen map after the stale window')
+    status = 200
+    assert.equal((await fetch(base + path)).status, 200, 'recovers')
   })
 })
