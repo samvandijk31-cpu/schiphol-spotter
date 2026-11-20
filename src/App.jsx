@@ -1,0 +1,75 @@
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import FlightMap from './components/FlightMap.jsx'
+import FilterPanel from './components/FilterPanel.jsx'
+import Sidebar from './components/Sidebar.jsx'
+import { DEFAULT_FILTERS, REFRESH_MS, fetchAircraft, matches } from './lib/adsb.js'
+import { photoRegs } from './lib/photos.js'
+
+function loadFilters() {
+  try {
+    return { ...DEFAULT_FILTERS, ...JSON.parse(localStorage.getItem('filters')) }
+  } catch {
+    return DEFAULT_FILTERS
+  }
+}
+
+export default function App() {
+  const [aircraft, setAircraft] = useState([])
+  const [status, setStatus] = useState({ ok: true, at: null })
+  const [selected, setSelected] = useState(null)
+  const [filters, setFilters] = useState(loadFilters)
+  const [regsWithPhotos, setRegsWithPhotos] = useState(new Set())
+
+  useEffect(() => localStorage.setItem('filters', JSON.stringify(filters)), [filters])
+
+  const refreshPhotoRegs = useCallback(() => photoRegs().then(setRegsWithPhotos, console.error), [])
+  useEffect(() => { refreshPhotoRegs() }, [refreshPhotoRegs])
+
+  // setTimeout chain instead of setInterval: never two requests in flight; failures keep the last data.
+  useEffect(() => {
+    let timer
+    let ctrl
+    let stopped = false
+    async function tick() {
+      ctrl = new AbortController()
+      try {
+        const list = await fetchAircraft(ctrl.signal)
+        setAircraft(list)
+        setSelected((s) => s && (list.find((a) => a.hex === s.hex) ?? { ...s, lost: true }))
+        setStatus({ ok: true, at: new Date() })
+      } catch (e) {
+        if (e.name === 'AbortError') return
+        setStatus((s) => ({ ...s, ok: false, error: e.message }))
+      }
+      if (!stopped) timer = setTimeout(tick, REFRESH_MS)
+    }
+    tick()
+    return () => {
+      stopped = true
+      clearTimeout(timer)
+      ctrl.abort()
+    }
+  }, [])
+
+  const visible = useMemo(() => aircraft.filter((a) => matches(a, filters)), [aircraft, filters])
+
+  return (
+    <div className="flex h-dvh flex-col">
+      <header className="flex items-center justify-between gap-3 border-b border-zinc-800 bg-zinc-950 px-4 py-2">
+        <h1 className="font-bold tracking-tight">✈ Schiphol Spotter</h1>
+        <p className="text-right text-xs text-zinc-400" aria-live="polite">
+          <span className="tabular-nums">{visible.length}/{aircraft.length}</span> vliegtuigen
+          {status.at && <> · {status.at.toLocaleTimeString('nl-NL')}</>}
+          {!status.ok && (
+            <span className="block text-rose-400">Verbindingsfout: {status.error}, nieuwe poging over {REFRESH_MS / 1000}s</span>
+          )}
+        </p>
+      </header>
+      <main className="relative flex-1">
+        <FlightMap aircraft={visible} selectedHex={selected?.hex} photoRegs={regsWithPhotos} onSelect={setSelected} />
+        <FilterPanel filters={filters} setFilters={setFilters} aircraft={aircraft} />
+        {selected && <Sidebar ac={selected} onClose={() => setSelected(null)} onPhotosChange={refreshPhotoRegs} />}
+      </main>
+    </div>
+  )
+}
