@@ -41,4 +41,6 @@ test('filters', () => {
   assert.ok(matches(ac, { ...DEFAULT_FILTERS, airlines: ['KLM'] }))
   assert.ok(!matches(ac, { ...DEFAULT_FILTERS, airlines: ['TRA'] }))
   assert.ok(matches({ ...ac, alt: null }, { ...DEFAULT_FILTERS, minAlt: 1000 }), 'unknown altitude stays visible')
+  assert.ok(matches({ ...ac, alt: -75, onGround: false }, DEFAULT_FILTERS), 'below-sea-level altitude at EHAM visible by default')
+  assert.ok(!matches({ ...ac, alt: -75 }, { ...DEFAULT_FILTERS, minAlt: 500 }))
 })

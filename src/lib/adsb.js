@@ -57,7 +57,8 @@ export function phase(ac) {
 export const DEFAULT_FILTERS = { minAlt: 0, maxAlt: MAX_ALT, phaseOnly: false, airlines: [] }
 
 export function matches(ac, f) {
-  if (ac.alt != null && (ac.alt < f.minAlt || ac.alt > f.maxAlt)) return false
+  // EHAM lies below sea level, so taxiing/landing traffic reports e.g. -75 ft; min 0 must not hide it.
+  if (ac.alt != null && ((f.minAlt > 0 && ac.alt < f.minAlt) || ac.alt > f.maxAlt)) return false
   if (f.phaseOnly && !phase(ac)) return false
   if (f.airlines.length && !f.airlines.includes(airline(ac.callsign))) return false
   return true
