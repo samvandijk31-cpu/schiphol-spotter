@@ -6,6 +6,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 
 const UPSTREAM = 'https://opendata.adsb.fi'
+const CLOUDFLARED_VERSION = '2026.11.1'
 const CACHE_MS = 2000 // all visitors share one upstream call per 2 s; adsb.fi allows ~1 req/s per IP
 const STALE_MS = 30000 // on upstream errors keep serving the last good data this long, then report the error
 // Only the exact query the frontend sends (src/lib/adsb.js), so nobody can use this host to burn the adsb.fi rate limit.
@@ -64,7 +65,8 @@ async function startTunnel(token) {
   const bin = `./cloudflared-${name}`
   if (!existsSync(bin)) {
     console.log('downloading cloudflared…')
-    const res = await fetch(`https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-${name}`)
+    // Pinned release (no silent upgrades of a binary we execute); bump CLOUDFLARED_VERSION deliberately.
+    const res = await fetch(`https://github.com/cloudflare/cloudflared/releases/download/${CLOUDFLARED_VERSION}/cloudflared-${name}`)
     if (!res.ok) throw new Error(`cloudflared download: HTTP ${res.status}`)
     writeFileSync(bin, Buffer.from(await res.arrayBuffer()), { mode: 0o755 })
   }
