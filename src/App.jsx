@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import FlightMap from './components/FlightMap.jsx'
 import FilterPanel from './components/FilterPanel.jsx'
 import Sidebar from './components/Sidebar.jsx'
-import { DEFAULT_FILTERS, REFRESH_MS, fetchAircraft, matches } from './lib/adsb.js'
+import RegSearch from './components/RegSearch.jsx'
+import { DEFAULT_FILTERS, REFRESH_MS, fetchAircraft, matches, regKey } from './lib/adsb.js'
 import { photoRegs } from './lib/photos.js'
 
 function loadFilters() {
@@ -18,7 +19,7 @@ export default function App() {
   const [status, setStatus] = useState({ ok: true, at: null })
   const [selected, setSelected] = useState(null)
   const [filters, setFilters] = useState(loadFilters)
-  const [regsWithPhotos, setRegsWithPhotos] = useState(new Set())
+  const [regsWithPhotos, setRegsWithPhotos] = useState(new Map())
 
   useEffect(() => localStorage.setItem('filters', JSON.stringify(filters)), [filters])
 
@@ -35,7 +36,12 @@ export default function App() {
       try {
         const list = await fetchAircraft(ctrl.signal)
         setAircraft(list)
-        setSelected((s) => s && (list.find((a) => a.hex === s.hex) ?? { ...s, lost: true }))
+        setSelected((s) => {
+          if (!s) return s
+          // Searched by registration: switch to live data once that aircraft shows up on the radar.
+          if (s.offline) return list.find((a) => a.reg && regKey(a.reg) === regKey(s.reg)) ?? s
+          return list.find((a) => a.hex === s.hex) ?? { ...s, lost: true }
+        })
         setStatus({ ok: true, at: new Date() })
       } catch (e) {
         if (e.name === 'AbortError') return
@@ -53,6 +59,12 @@ export default function App() {
 
   const visible = useMemo(() => aircraft.filter((a) => matches(a, filters)), [aircraft, filters])
 
+  const [focus, setFocus] = useState(null)
+  function search(ac) {
+    setSelected(ac)
+    if (!ac.offline) setFocus({ at: [ac.lat, ac.lon] }) // new object each time, so repeated searches pan again
+  }
+
   return (
     <div className="flex h-dvh flex-col">
       <header className="flex items-center justify-between gap-3 border-b border-zinc-800 bg-zinc-950 px-4 py-2">
@@ -66,8 +78,11 @@ export default function App() {
         </p>
       </header>
       <main className="relative flex-1">
-        <FlightMap aircraft={visible} selectedHex={selected?.hex} photoRegs={regsWithPhotos} onSelect={setSelected} />
-        <FilterPanel filters={filters} setFilters={setFilters} aircraft={aircraft} />
+        <FlightMap aircraft={visible} selectedHex={selected?.hex} photoRegs={regsWithPhotos} onSelect={setSelected} focus={focus} />
+        <div className="absolute top-3 left-3 z-[1000] w-72 max-w-[calc(100vw-1.5rem)] space-y-2">
+          <RegSearch aircraft={aircraft} photoRegs={regsWithPhotos} onSearch={search} />
+          <FilterPanel filters={filters} setFilters={setFilters} aircraft={aircraft} />
+        </div>
         {selected && <Sidebar ac={selected} onClose={() => setSelected(null)} onPhotosChange={refreshPhotoRegs} />}
       </main>
     </div>

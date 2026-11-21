@@ -7,6 +7,7 @@ Draait volledig in de browser: geen account, geen API-key; alleen een mini-proxy
 - Kaart: Leaflet + OpenStreetMap (donker thema)
 - Klik op een vliegtuig voor registratie, type, callsign, hoogte (ft), snelheid (kts), vertical rate en squawk
 - Upload eigen foto's per registratie; ze worden opgeslagen in IndexedDB van je browser. Komt het toestel later terug, dan staan je foto's er weer. Toestellen waarvan je foto's hebt zijn **cyaan** op de kaart.
+- Zoek op registratie (bijv. `PH-BXA`, `phbxa` of `ph bxa`) om foto's toe te voegen, ook als het toestel nu niet op de kaart staat. Hoofdletters, spaties en streepjes maken niet uit; zodra het toestel verschijnt, hangen je foto's eraan.
 - Filters (bewaard in localStorage): hoogte min/max, alleen landend/startend, airlines
 
 ## Starten

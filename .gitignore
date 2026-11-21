@@ -4,3 +4,4 @@ dist
 .vercel
 .tunnel-token
 server/cloudflared-*
+.jarvis/

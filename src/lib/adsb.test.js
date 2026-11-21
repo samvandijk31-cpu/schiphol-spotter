@@ -1,6 +1,12 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { normalize, airline, phase, matches, DEFAULT_FILTERS } from './adsb.js'
+import { normalize, airline, phase, matches, regKey, DEFAULT_FILTERS } from './adsb.js'
+
+test('regKey ignores case, spaces and hyphens', () => {
+  for (const s of ['PH-BXA', 'ph-bxa', 'PHBXA', ' ph bxa ']) assert.equal(regKey(s), 'PHBXA')
+  assert.equal(regKey('CN-MAY'), regKey('cnmay'))
+  assert.equal(regKey(null), '')
+})
 
 test('normalize handles ground, padding and missing fields', () => {
   assert.equal(normalize({ hex: 'abc' }), null)

@@ -1,4 +1,4 @@
-import { AIRLINES, airline, phase } from '../lib/adsb.js'
+import { AIRLINES, airline, phase, regKey } from '../lib/adsb.js'
 import Photos from './Photos.jsx'
 
 const nl = (n) => Math.round(n).toLocaleString('nl-NL')
@@ -30,25 +30,26 @@ export default function Sidebar({ ac, onClose, onPhotosChange }) {
           <p className="text-sm text-zinc-400">
             {[AIRLINES[code] ?? code, p === 'landing' ? 'landend' : p === 'takeoff' ? 'startend' : null].filter(Boolean).join(' · ')}
           </p>
+          {ac.offline && <p className="mt-1 text-xs text-amber-400">Nu niet op de radar: je kunt wel foto's toevoegen</p>}
           {ac.lost && <p className="mt-1 text-xs text-amber-400">Niet meer in ontvangst: laatst bekende gegevens</p>}
         </div>
         <button type="button" onClick={onClose} aria-label="Sluiten"
           className="rounded p-1 text-2xl leading-none text-zinc-400 hover:bg-zinc-800 hover:text-white">×</button>
       </header>
 
-      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 px-4 py-3 text-sm">
+      {!ac.offline && <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 px-4 py-3 text-sm">
         {rows.map(([label, value]) => (
           <div key={label} className="contents">
             <dt className="text-zinc-400">{label}</dt>
             <dd className="tabular-nums">{value || '—'}</dd>
           </div>
         ))}
-      </dl>
+      </dl>}
 
       <section className="border-t border-zinc-800 px-4 py-3">
         <h3 className="mb-2 font-semibold">Mijn foto's</h3>
         {ac.reg ? (
-          <Photos key={ac.reg} reg={ac.reg} onChange={onPhotosChange} />
+          <Photos key={regKey(ac.reg)} reg={ac.reg} onChange={onPhotosChange} />
         ) : (
           <p className="text-sm text-zinc-500">Dit toestel zendt geen registratie uit; foto's worden per registratie opgeslagen.</p>
         )}

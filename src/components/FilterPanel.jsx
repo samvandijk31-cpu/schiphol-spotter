@@ -17,7 +17,7 @@ export default function FilterPanel({ filters, setFilters, aircraft }) {
     set({ airlines: filters.airlines.includes(code) ? filters.airlines.filter((c) => c !== code) : [...filters.airlines, code] })
 
   return (
-    <details open={startOpen} className="absolute top-3 left-3 z-[1000] w-72 max-w-[calc(100vw-1.5rem)] rounded-lg border border-zinc-800 bg-zinc-900/95 text-sm shadow-xl backdrop-blur">
+    <details open={startOpen} className="rounded-lg border border-zinc-800 bg-zinc-900/95 text-sm shadow-xl backdrop-blur">
       <summary className="cursor-pointer select-none px-4 py-2 font-semibold">Filters</summary>
       <div className="space-y-4 px-4 pb-4">
         <fieldset className="space-y-2">

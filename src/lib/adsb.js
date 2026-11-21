@@ -35,6 +35,9 @@ export function normalize(a) {
   }
 }
 
+// Spelling-independent registration key: "ph bxa", "phbxa" and "PH-BXA" all become "PHBXA".
+export const regKey = (reg) => (reg ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+
 // ICAO airline prefix only for "ABC123"-style callsigns; registration callsigns (PHABC) have none.
 export const airline = (callsign) => /^([A-Z]{3})\d/.exec(callsign ?? '')?.[1] ?? null
 
@@ -44,7 +47,7 @@ export const AIRLINES = {
   TFL: 'TUI fly NL', EZY: 'easyJet', EJU: 'easyJet Europe', RYR: 'Ryanair', VLG: 'Vueling',
   BAW: 'British Airways', DLH: 'Lufthansa', AFR: 'Air France', SAS: 'SAS', EWG: 'Eurowings',
   SWR: 'Swiss', AUA: 'Austrian', FIN: 'Finnair', IBE: 'Iberia', THY: 'Turkish Airlines',
-  DAL: 'Delta', UAE: 'Emirates', CLH: 'Lufthansa CityLine', BEL: 'Brussels Airlines',
+  DAL: 'Delta', UAE: 'Emirates', CLH: 'Lufthansa CityLine', BEL: 'Brussels Airlines', RAM: 'Royal Air Maroc',
 }
 
 // Landing/takeoff heuristic: airborne, within 20 NM of EHAM, below 6000 ft, climbing/descending >= 300 ft/min.
