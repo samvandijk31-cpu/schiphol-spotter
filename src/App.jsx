@@ -5,6 +5,7 @@ import Sidebar from './components/Sidebar.jsx'
 import RegSearch from './components/RegSearch.jsx'
 import { DEFAULT_FILTERS, REFRESH_MS, fetchAircraft, matches, regKey } from './lib/adsb.js'
 import { photoRegs } from './lib/photos.js'
+import { fetchRoute } from './lib/route.js'
 
 function loadFilters() {
   try {
@@ -59,6 +60,17 @@ export default function App() {
 
   const visible = useMemo(() => aircraft.filter((a) => matches(a, filters)), [aircraft, filters])
 
+  // Route of the selected flight: undefined = loading, null = unknown.
+  const [route, setRoute] = useState(null)
+  const callsign = selected?.offline ? null : selected?.callsign
+  useEffect(() => {
+    setRoute(callsign ? undefined : null)
+    if (!callsign) return
+    let current = true
+    fetchRoute(callsign).then((r) => current && setRoute(r))
+    return () => { current = false }
+  }, [callsign])
+
   const [focus, setFocus] = useState(null)
   function search(ac) {
     setSelected(ac)
@@ -78,12 +90,12 @@ export default function App() {
         </p>
       </header>
       <main className="relative flex-1">
-        <FlightMap aircraft={visible} selectedHex={selected?.hex} photoRegs={regsWithPhotos} onSelect={setSelected} focus={focus} />
+        <FlightMap aircraft={visible} selected={selected} route={route} photoRegs={regsWithPhotos} onSelect={setSelected} focus={focus} />
         <div className="absolute top-3 left-3 z-[1000] w-72 max-w-[calc(100vw-1.5rem)] space-y-2">
           <RegSearch aircraft={aircraft} photoRegs={regsWithPhotos} onSearch={search} />
           <FilterPanel filters={filters} setFilters={setFilters} aircraft={aircraft} />
         </div>
-        {selected && <Sidebar ac={selected} onClose={() => setSelected(null)} onPhotosChange={refreshPhotoRegs} />}
+        {selected && <Sidebar ac={selected} route={route} onClose={() => setSelected(null)} onPhotosChange={refreshPhotoRegs} />}
       </main>
     </div>
   )

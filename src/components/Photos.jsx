@@ -28,8 +28,8 @@ export default function Photos({ reg, onChange }) {
 
   async function remove(photo) {
     if (!confirm(`Foto van ${reg} verwijderen?`)) return
-    await deletePhoto(photo.id)
     setOpen(null)
+    await deletePhoto(photo.id).catch((e) => setError(`Verwijderen mislukt: ${e?.message ?? e}`))
     setPhotos(await getPhotos(reg))
     onChange()
   }
@@ -48,9 +48,15 @@ export default function Photos({ reg, onChange }) {
       ) : (
         <ul className="grid grid-cols-2 gap-2">
           {photos.map((p) => (
-            <li key={p.id}>
+            <li key={p.id} className="relative">
               <button type="button" onClick={() => setOpen(p)} className="block w-full overflow-hidden rounded-md">
                 <img src={p.dataUrl} alt={`${reg}, ${new Date(p.added).toLocaleDateString('nl-NL')}`} className="aspect-[4/3] w-full object-cover" />
+              </button>
+              <button type="button" onClick={() => remove(p)} aria-label="Foto verwijderen" title="Foto verwijderen"
+                className="absolute top-1 right-1 rounded-full bg-black/70 p-1.5 text-zinc-200 hover:bg-rose-600 hover:text-white focus:bg-rose-600">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
+                  <path d="M9 3h6l1 2h4v2H4V5h4l1-2zm-3 6h12l-1 12H7L6 9zm4 2v8h2v-8h-2zm4 0v8h2v-8h-2z" />
+                </svg>
               </button>
               <p className="mt-0.5 text-xs text-zinc-500">{new Date(p.added).toLocaleDateString('nl-NL')}</p>
             </li>

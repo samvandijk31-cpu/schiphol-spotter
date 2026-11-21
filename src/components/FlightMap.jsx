@@ -1,7 +1,8 @@
 import L from 'leaflet'
 import { useEffect } from 'react'
-import { MapContainer, TileLayer, Marker, ZoomControl, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, ZoomControl, Polyline, CircleMarker, Tooltip, useMap } from 'react-leaflet'
 import { SCHIPHOL, regKey } from '../lib/adsb.js'
+import { greatCircle, project } from '../lib/route.js'
 
 const PLANE = 'M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z'
 const icons = new Map()
@@ -34,7 +35,28 @@ function FlyTo({ focus }) {
   return null
 }
 
-export default function FlightMap({ aircraft, selectedHex, photoRegs, onSelect, focus }) {
+const LINE = { color: '#f43f5e', weight: 2, dashArray: '6 6' }
+
+// Line from the selected aircraft to its destination; without a known route, 15 minutes ahead along its track.
+function RouteLine({ ac, route }) {
+  const from = [ac.lat, ac.lon]
+  const dest = route?.destination
+  if (dest) {
+    return (
+      <>
+        <Polyline positions={greatCircle(from, dest.at)} pathOptions={LINE} interactive={false} />
+        <CircleMarker center={dest.at} radius={5} pathOptions={{ color: LINE.color, fillOpacity: 1 }}>
+          <Tooltip permanent direction="right" offset={[6, 0]}>{dest.iata ?? dest.icao} · {dest.city ?? dest.name}</Tooltip>
+        </CircleMarker>
+      </>
+    )
+  }
+  if (ac.onGround || ac.track == null || !ac.speed) return null
+  return <Polyline positions={[from, project(from, ac.track, ac.speed / 4)]} pathOptions={{ ...LINE, dashArray: '2 6' }} interactive={false} />
+}
+
+export default function FlightMap({ aircraft, selected: sel, route, photoRegs, onSelect, focus }) {
+  const selectedHex = sel?.hex
   return (
     <MapContainer center={SCHIPHOL} zoom={10} zoomControl={false} className="h-full w-full">
       <TileLayer
@@ -44,6 +66,7 @@ export default function FlightMap({ aircraft, selectedHex, photoRegs, onSelect, 
       />
       <ZoomControl position="bottomleft" />
       <FlyTo focus={focus} />
+      {sel?.lat != null && <RouteLine ac={sel} route={route} />}
       {aircraft.map((ac) => {
         const selected = ac.hex === selectedHex
         return (

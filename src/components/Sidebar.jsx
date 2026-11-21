@@ -4,10 +4,16 @@ import Photos from './Photos.jsx'
 const nl = (n) => Math.round(n).toLocaleString('nl-NL')
 const EMERGENCY = { 7500: 'kaping', 7600: 'radio-uitval', 7700: 'noodgeval' }
 
-export default function Sidebar({ ac, onClose, onPhotosChange }) {
+const place = (a) => a && [a.iata ?? a.icao, a.city].filter(Boolean).join(' ')
+
+export default function Sidebar({ ac, route, onClose, onPhotosChange }) {
   const code = airline(ac.callsign)
   const p = phase(ac)
+  const routeText = route === undefined ? 'laden…'
+    : route ? <>{place(route.origin) ?? '?'} → {place(route.destination)} <span className="text-xs text-zinc-500">(adsbdb)</span></>
+    : ac.callsign && <span className="text-zinc-500">onbekend; lijn toont koers</span>
   const rows = [
+    ['Route', routeText],
     ['Registratie', ac.reg],
     ['Type', [ac.type, ac.desc].filter(Boolean).join(' · ')],
     ['Callsign', ac.callsign],
