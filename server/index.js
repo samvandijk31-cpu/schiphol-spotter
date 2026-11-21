@@ -1,6 +1,8 @@
 // CORS proxy + short cache in front of opendata.adsb.fi (which sends no CORS headers).
 // No dependencies: runs on any Node >= 18 host, e.g. the Pterodactyl "node.js generic" egg.
 import http from 'node:http'
+import { spawn } from 'node:child_process'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 
 const UPSTREAM = 'https://opendata.adsb.fi'
@@ -50,4 +52,23 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const port = Number(process.env.SERVER_PORT || process.env.PORT || 8787) // SERVER_PORT is set by Pterodactyl
   const origins = (process.env.ALLOWED_ORIGINS || '*').split(',').map((s) => s.trim())
   createServer({ origins }).listen(port, '0.0.0.0', () => console.log(`adsb proxy on :${port}, origins: ${origins.join(', ')}`))
+
+  // Optional Cloudflare Tunnel: HTTPS without port forwarding. Put the tunnel token in .tunnel-token (or TUNNEL_TOKEN).
+  const token = process.env.TUNNEL_TOKEN || (existsSync('.tunnel-token') && readFileSync('.tunnel-token', 'utf8').trim())
+  if (token) startTunnel(token).catch((err) => { console.error('tunnel failed:', err.message); process.exit(1) })
+}
+
+async function startTunnel(token) {
+  const name = { 'win32-x64': 'windows-amd64.exe', 'linux-x64': 'linux-amd64', 'linux-arm64': 'linux-arm64' }[`${process.platform}-${process.arch}`]
+  if (!name) throw new Error(`no cloudflared build for ${process.platform}-${process.arch}`)
+  const bin = `./cloudflared-${name}`
+  if (!existsSync(bin)) {
+    console.log('downloading cloudflared…')
+    const res = await fetch(`https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-${name}`)
+    if (!res.ok) throw new Error(`cloudflared download: HTTP ${res.status}`)
+    writeFileSync(bin, Buffer.from(await res.arrayBuffer()), { mode: 0o755 })
+  }
+  const child = spawn(bin, ['tunnel', '--no-autoupdate', 'run'], { env: { ...process.env, TUNNEL_TOKEN: token }, stdio: 'inherit' })
+  // Without the tunnel the site is unreachable, so let the host's crash detection restart everything.
+  child.on('exit', (code) => { console.error(`cloudflared exited (${code})`); process.exit(1) })
 }

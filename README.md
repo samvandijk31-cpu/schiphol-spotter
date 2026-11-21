@@ -46,6 +46,13 @@ SERVER_PORT=8787 ALLOWED_ORIGINS=https://jouwnaam.github.io node server/index.js
 Op een Pterodactyl-host (egg "node.js generic"): upload `server/index.js` en `server/package.json`, zet het startbestand (`JS_FILE`/`MAIN_FILE`) op `index.js`. Zonder `ALLOWED_ORIGINS` staat CORS op `*`;
 dat is acceptabel omdat de server alleen die ene openbare query doorgeeft.
 
+**HTTPS zonder port forward (Cloudflare Tunnel):** maak in Cloudflare een tunnel met een public hostname
+(bijv. `spotter.jouwdomein.nl` → `http://localhost:<SERVER_PORT>`) en zet het tunneltoken in een bestand `.tunnel-token`
+naast `index.js` (of in env `TUNNEL_TOKEN`). De server downloadt dan zelf `cloudflared` en start de tunnel.
+De live versie draait zo op `https://spotter.gemix-it.nl`.
+
+Let op: adsb.fi blokkeert verzoeken vanuit Cloudflare Workers, dus de proxy moet op een gewone server draaien.
+
 ### Frontend (GitHub Pages)
 
 1. Zet onder *Settings → Secrets and variables → Actions → Variables* de variabele
