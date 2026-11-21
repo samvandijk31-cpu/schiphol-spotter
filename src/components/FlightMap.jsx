@@ -1,7 +1,7 @@
 import L from 'leaflet'
 import { useEffect } from 'react'
-import { MapContainer, TileLayer, Marker, ZoomControl, Polyline, CircleMarker, Tooltip, useMap } from 'react-leaflet'
-import { SCHIPHOL, regKey } from '../lib/adsb.js'
+import { MapContainer, TileLayer, Marker, ZoomControl, Polyline, Circle, CircleMarker, Tooltip, useMap, useMapEvents } from 'react-leaflet'
+import { SCHIPHOL, distNm, regKey } from '../lib/adsb.js'
 import { greatCircle, project } from '../lib/route.js'
 
 const PLANE = 'M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z'
@@ -29,9 +29,27 @@ function colorFor(ac, selected, hasPhotos) {
 }
 
 // Pans to an aircraft found via the registration search.
+// Also fits all photographed aircraft into view when the photo filter is switched on.
 function FlyTo({ focus }) {
   const map = useMap()
-  useEffect(() => { if (focus) map.flyTo(focus.at, Math.max(map.getZoom(), 11)) }, [focus, map])
+  useEffect(() => {
+    // Keep fitted aircraft out from under the search/filter panel (left on desktop, top on mobile).
+    const wide = window.matchMedia('(min-width: 768px)').matches
+    if (focus?.bounds) map.flyToBounds(focus.bounds, { paddingTopLeft: wide ? [330, 60] : [30, 190], paddingBottomRight: [60, 60], maxZoom: 9 })
+    else if (focus) map.flyTo(focus.at, Math.max(map.getZoom(), 11))
+  }, [focus, map])
+  return null
+}
+
+// Reports the visible area (centre + radius to the corner) so the app can fetch aircraft for it.
+function ViewWatcher({ onView }) {
+  const map = useMapEvents({ moveend: report })
+  function report() {
+    const c = map.getCenter()
+    const ne = map.getBounds().getNorthEast()
+    onView({ center: [c.lat, c.lng], radiusNm: distNm([c.lat, c.lng], [Math.min(ne.lat, 85), ne.lng]) })
+  }
+  useEffect(report, []) // once, for the initial view
   return null
 }
 
@@ -55,10 +73,10 @@ function RouteLine({ ac, route }) {
   return <Polyline positions={[from, project(from, ac.track, ac.speed / 4)]} pathOptions={{ ...LINE, dashArray: '2 6' }} interactive={false} />
 }
 
-export default function FlightMap({ aircraft, selected: sel, route, photoRegs, onSelect, focus }) {
+export default function FlightMap({ aircraft, selected: sel, route, photoRegs, onSelect, focus, onView, coverage }) {
   const selectedHex = sel?.hex
   return (
-    <MapContainer center={SCHIPHOL} zoom={10} zoomControl={false} className="h-full w-full">
+    <MapContainer center={SCHIPHOL} zoom={10} minZoom={2} worldCopyJump zoomControl={false} className="h-full w-full">
       <TileLayer
         url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · data <a href="https://adsb.fi">adsb.fi</a>'
@@ -66,6 +84,11 @@ export default function FlightMap({ aircraft, selected: sel, route, photoRegs, o
       />
       <ZoomControl position="bottomleft" />
       <FlyTo focus={focus} />
+      <ViewWatcher onView={onView} />
+      {coverage && (
+        <Circle center={[coverage.lat, coverage.lon]} radius={coverage.dist * 1852} interactive={false}
+          pathOptions={{ color: '#facc15', weight: 1, dashArray: '4 8', fill: false }} />
+      )}
       {sel?.lat != null && <RouteLine ac={sel} route={route} />}
       {aircraft.map((ac) => {
         const selected = ac.hex === selectedHex

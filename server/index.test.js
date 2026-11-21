@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createServer } from './index.js'
+import { createServer, allowed } from './index.js'
 
 async function withServer(opts, fn) {
   const server = createServer(opts).listen(0)
@@ -28,9 +28,17 @@ test('proxies allowed paths, caches and coalesces upstream calls', async () => {
   })
 })
 
-test('rejects anything that is not the ADSB.fi point query', async () => {
+test('allows point queries anywhere and registration lookups, nothing else', () => {
+  for (const p of [path, '/api/v2/lat/52.5/lon/5/dist/75', '/api/v2/lat/-34/lon/151.5/dist/250', '/api/v2/lat/0/lon/-170/dist/1',
+    '/api/v2/registration/PH-BXA', '/api/v2/registration/CNMAY,C-NMAY,CN-MAY']) assert.ok(allowed(p), p)
+  const tooMany = Array.from({ length: 151 }, (_, i) => 'PH-' + i).join(',')
+  for (const p of ['/api/v2/lat/52.5/lon/5/dist/251', '/api/v2/lat/52.5/lon/5/dist/0', '/api/v2/lat/abc/lon/5/dist/60',
+    '/api/v2/registration/ph-bxa', '/api/v2/registration/PH BXA', '/api/v2/registration/' + tooMany, '/api/v2/hex/abc']) assert.ok(!allowed(p), p)
+})
+
+test('rejects anything that is not an allowed query', async () => {
   await withServer({ fetchImpl: async () => assert.fail('must not call upstream') }, async (base) => {
-    for (const p of ['/', '/api/v2/hex/abc', '/api/v2/lat/1/lon/2/dist/60', '/api/v2/lat/52.3105/lon/4.7683/dist/250']) {
+    for (const p of ['/', '/api/v2/hex/abc', '/api/v2/lat/52.5/lon/5/dist/251', '/api/v2/sqk/7700']) {
       assert.equal((await fetch(base + p)).status, 404, p)
     }
     assert.equal((await fetch(base + '/health')).status, 200)
@@ -40,7 +48,7 @@ test('rejects anything that is not the ADSB.fi point query', async () => {
 test('serves last good data briefly when upstream fails, then passes the error on', async () => {
   let status = 200
   const fetchImpl = async () => new Response(status === 200 ? '{"aircraft":[1]}' : '', { status })
-  await withServer({ fetchImpl, cacheMs: 0, staleMs: 300 }, async (base) => {
+  await withServer({ fetchImpl, cacheMs: 0, staleMs: 300, gapMs: 0 }, async (base) => {
     assert.equal(await (await fetch(base + path)).text(), '{"aircraft":[1]}')
     status = 429
     const stale = await fetch(base + path)
@@ -50,5 +58,16 @@ test('serves last good data briefly when upstream fails, then passes the error o
     assert.equal((await fetch(base + path)).status, 429, 'no frozen map after the stale window')
     status = 200
     assert.equal((await fetch(base + path)).status, 200, 'recovers')
+  })
+})
+
+test('spaces upstream calls and answers 429 when the queue is too long', async () => {
+  const times = []
+  const fetchImpl = async () => { times.push(Date.now()); return new Response('{"aircraft":[]}', { status: 200 }) }
+  await withServer({ fetchImpl, gapMs: 100, maxWaitMs: 250 }, async (base) => {
+    const paths = [1, 2, 3, 4].map((i) => `/api/v2/lat/${i}/lon/0/dist/50`)
+    const statuses = await Promise.all(paths.map((p) => fetch(base + p).then((r) => r.status)))
+    assert.deepEqual(statuses, [200, 200, 200, 429], 'fourth caller would wait 300 ms > 250 ms')
+    for (let i = 1; i < times.length; i++) assert.ok(times[i] - times[i - 1] >= 90, 'upstream calls at least gapMs apart')
   })
 })

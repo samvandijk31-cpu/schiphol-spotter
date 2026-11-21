@@ -1,9 +1,10 @@
 # ✈ Schiphol Spotter
 
-Open-source live flight tracker rond Schiphol (EHAM) met je **eigen spotterfoto's per registratie**.
+Open-source live flight tracker, gestart rond Schiphol (EHAM), met je **eigen spotterfoto's per registratie**.
 Draait volledig in de browser: geen account, geen API-key; alleen een mini-proxy als backend.
 
-- Live posities van [ADSB.fi](https://adsb.fi) (60 NM rond Schiphol, elke 5 s ververst)
+- Live posities van [ADSB.fi](https://adsb.fi), wereldwijd: de app haalt vliegtuigen op rond het midden van de kaart (elke 5 s, en direct na schuiven/zoomen). Eén query dekt maximaal 250 NM; ben je verder uitgezoomd, dan toont een gele cirkel wat er gedekt is.
+- Filter **Alleen toestellen met mijn foto's**: zoekt al je gefotografeerde registraties wereldwijd op en zoomt de kaart erop in (max. 50 registraties)
 - Kaart: Leaflet + OpenStreetMap (donker thema)
 - Klik op een vliegtuig voor registratie, type, callsign, hoogte (ft), snelheid (kts), vertical rate en squawk
 - Upload eigen foto's per registratie; ze worden opgeslagen in IndexedDB van je browser. Komt het toestel later terug, dan staan je foto's er weer. Toestellen waarvan je foto's hebt zijn **cyaan** op de kaart.
@@ -33,10 +34,11 @@ Daarom gaat de data via een kleine proxy:
 
 ### Backend (`server/index.js`)
 
-Eén bestand, geen dependencies, Node 18+. Staat alleen precies de Schiphol-query uit `src/lib/adsb.js` toe
-(pas `ALLOWED` aan als je `SCHIPHOL`/`RADIUS_NM` wijzigt), zet CORS-headers en cachet 2 seconden, zodat alle
-bezoekers samen hooguit ~1 verzoek per 2 s naar adsb.fi doen. Bij een fout van adsb.fi (bijv. 429) blijft het
-laatste goede antwoord nog 30 s geserveerd; daarna krijgt de app de fout te zien.
+Eén bestand, geen dependencies, Node 18+. Staat alleen de twee query-vormen van `src/lib/adsb.js` toe
+(puntquery `lat/…/lon/…/dist/≤250` en `registration/<lijst>`), zet CORS-headers en cachet 2 seconden per gebied.
+Alle verzoeken naar adsb.fi gaan samen door één wachtrij met minstens 1,1 s ertussen (adsb.fi staat ~1 verzoek/s
+per IP toe); wordt de wachtrij langer dan 8 s, dan antwoordt de server 429 en houdt de app zijn laatste data.
+Bij een fout van adsb.fi blijft het laatste goede antwoord nog 30 s geserveerd.
 
 ```bash
 SERVER_PORT=8787 ALLOWED_ORIGINS=https://jouwnaam.github.io node server/index.js

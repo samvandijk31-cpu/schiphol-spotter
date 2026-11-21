@@ -3,7 +3,7 @@ import { AIRLINES, MAX_ALT, airline } from '../lib/adsb.js'
 const startOpen = window.matchMedia('(min-width: 768px)').matches
 const ft = (n) => `${n.toLocaleString('nl-NL')} ft`
 
-export default function FilterPanel({ filters, setFilters, aircraft }) {
+export default function FilterPanel({ filters, setFilters, aircraft, photoCount }) {
   const set = (patch) => setFilters((f) => ({ ...f, ...patch }))
 
   const counts = {}
@@ -20,6 +20,16 @@ export default function FilterPanel({ filters, setFilters, aircraft }) {
     <details open={startOpen} className="rounded-lg border border-zinc-800 bg-zinc-900/95 text-sm shadow-xl backdrop-blur">
       <summary className="cursor-pointer select-none px-4 py-2 font-semibold">Filters</summary>
       <div className="space-y-4 px-4 pb-4">
+        <label className="flex items-start gap-2">
+          <input type="checkbox" checked={filters.photosOnly} className="mt-1 accent-cyan-400"
+            onChange={(e) => set({ photosOnly: e.target.checked })} />
+          <span>
+            Alleen toestellen met mijn foto's
+            <span className="block text-xs text-zinc-400">
+              {photoCount ? `Zoekt je ${photoCount} toestellen wereldwijd op` : "Je hebt nog geen foto's toegevoegd"}
+            </span>
+          </span>
+        </label>
         <fieldset className="space-y-2">
           <legend className="mb-1 text-zinc-400">Hoogte</legend>
           <label className="block">
